@@ -5,7 +5,7 @@ import { DiscountConfigurationEntity, CustomerType } from '../entities/discounts
 import { Car } from '../entities/car.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { ParkingRatesConfigurationEntity } from 'src/entities/parking-rates-configuration.entity';
-import { EntryRecord } from 'src/entities/entry-record.entity';
+import { ParkingRecord } from 'src/entities/parking-record.entity'; // Import ParkingRecord
 import { OptionConfigurationEntity } from 'src/entities/option-configuration.entity';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class DiscountService {
     private paymentRepo: Repository<Payment>,
     @InjectRepository(ParkingRatesConfigurationEntity)
     private ratesRepo: Repository<ParkingRatesConfigurationEntity>,
-    @InjectRepository(EntryRecord)
-    private entryRecordRepo: Repository<EntryRecord>,
+    @InjectRepository(ParkingRecord)
+    private ParkingRecordRepo: Repository<ParkingRecord>,
 
     @InjectRepository(OptionConfigurationEntity)
     private optionRepo: Repository<OptionConfigurationEntity>,
@@ -95,7 +95,7 @@ export class DiscountService {
     }
 
     // Find the latest entry record for the car
-    const latestEntry = await this.entryRecordRepo.findOne({
+    const latestEntry = await this.ParkingRecordRepo.findOne({
       where: { car: { car_id: carId } },
       order: { entry_time: 'DESC' }
     });
@@ -106,7 +106,7 @@ export class DiscountService {
 
     // Find the latest payment for the entry
     const latestPayment = await this.paymentRepo.findOne({
-      where: { entryRecord: { entry_records_id: latestEntry.entry_records_id } },
+      where: { parkingRecord: { parking_record_id: latestEntry.parking_record_id } }, // Use parking_record_id
       order: { paid_at: 'DESC' }
     });
 

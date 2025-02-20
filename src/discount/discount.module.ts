@@ -7,7 +7,7 @@ import { DiscountConfigurationEntity } from '../entities/discounts-configuration
 import { Car } from '../entities/car.entity';
 import { Payment } from '../entities/payment.entity';
 import { ParkingRatesConfigurationEntity } from '../entities/parking-rates-configuration.entity';
-import { EntryRecord } from '../entities/entry-record.entity';
+import { ParkingRecord } from '../entities/parking-record.entity';
 import { OptionConfigurationEntity } from 'src/entities/option-configuration.entity';
 
 @Module({
@@ -17,7 +17,7 @@ import { OptionConfigurationEntity } from 'src/entities/option-configuration.ent
       Car,
       Payment,
       ParkingRatesConfigurationEntity,
-      EntryRecord,
+      ParkingRecord,
       OptionConfigurationEntity
     ])
   ],

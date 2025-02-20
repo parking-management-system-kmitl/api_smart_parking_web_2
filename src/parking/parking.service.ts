@@ -1,41 +1,29 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Car } from "src/entities/car.entity";
-import { EntryRecord } from "src/entities/entry-record.entity";
 import { Repository, DataSource, IsNull, Not } from "typeorm";
 import { CreateEntryDto } from "./dto/create-entry.dto";
-import { EntryExitRecord } from "src/entities/entry-exit-record.entity";
+import { ParkingRecord } from "src/entities/parking-record.entity"; // Import ParkingRecord
 import { Payment } from "src/entities/payment.entity";
 import { OptionConfigurationEntity } from "src/entities/option-configuration.entity";
 import { ParkingRatesConfigurationEntity } from "src/entities/parking-rates-configuration.entity";
 
-
-
-
-// src/parking/parking.service.ts
 @Injectable()
 export class ParkingService {
-
-  //private readonly HOURLY_RATE = 20;
-  //private readonly PAYMENT_VALID_MINUTES = 1;
-  
   constructor(
     @InjectRepository(Car)
     private carRepository: Repository<Car>,
-    @InjectRepository(EntryRecord)
-    private entryRecordRepository: Repository<EntryRecord>,
-    @InjectRepository(EntryExitRecord)
-    private entryExitRecordRepository: Repository<EntryExitRecord>,
+    @InjectRepository(ParkingRecord) // Inject ParkingRecord repository
+    private parkingRecordRepository: Repository<ParkingRecord>,
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
     @InjectRepository(OptionConfigurationEntity)
     private optionConfigRepository: Repository<OptionConfigurationEntity>,
     @InjectRepository(ParkingRatesConfigurationEntity)
     private ParkingRateConfigRepository: Repository<ParkingRatesConfigurationEntity>,
-
-
     private dataSource: DataSource
   ) {}
+
 
 
 
@@ -113,43 +101,42 @@ export class ParkingService {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-  
+
     try {
       // 1. Find or create car
       let car = await this.carRepository.findOne({
         where: { license_plate: createEntryDto.licensePlate }
       });
-  
+
       if (!car) {
         car = this.carRepository.create({
           license_plate: createEntryDto.licensePlate
         });
         await queryRunner.manager.save(car);
       }
-  
-      // 2. Create entry record
-      const entryRecord = this.entryRecordRepository.create({
+
+      // 2. Create parking record (instead of entry record)
+      const parkingRecord = this.parkingRecordRepository.create({
         car_id: car.car_id,
-        entry_time: new Date(), // ให้ DB จัดการ timezone
+        entry_time: new Date(),
         entry_car_image_path: createEntryDto.imagePath
       });
-      await queryRunner.manager.save(entryRecord);
-      
-  
+      await queryRunner.manager.save(parkingRecord);
+
       // 3. Create initial payment with null paid_at
       const initialPayment = this.paymentRepository.create({
-        entry_record_id: entryRecord.entry_records_id,
+        parking_record_id: parkingRecord.parking_record_id, // Use parking_record_id
         amount: 0,
         discount: 0,
-        paid_at: null  // ตั้งค่าเป็น null
+        paid_at: null
       });
       await queryRunner.manager.save(initialPayment);
-  
+
       await queryRunner.commitTransaction();
-  
+
       return {
         carId: car.car_id,
-        entryRecordId: entryRecord.entry_records_id,
+        parkingRecordId: parkingRecord.parking_record_id, // Return parkingRecordId
         paymentId: initialPayment.payment_id
       };
     } catch (error) {
@@ -175,27 +162,28 @@ export class ParkingService {
   }
 
   async getLatestEntry(licensePlate: string) {
-    const entry = await this.entryRecordRepository
-      .createQueryBuilder('entry')
-      .innerJoin('entry.car', 'car')
-      .where('car.license_plate = :licensePlate', { licensePlate })
-      .orderBy('entry.entry_time', 'DESC')
-      .getOne();
+    const parkingRecord = await this.parkingRecordRepository // Use parkingRecordRepository
+    .createQueryBuilder('parkingRecord')
+    .innerJoin('parkingRecord.car', 'car')
+    .where('car.license_plate =:licensePlate', { licensePlate })
+    .orderBy('parkingRecord.entry_time', 'DESC')
+    .getOne();
 
-    if (!entry) {
+    if (!parkingRecord) {
       throw new NotFoundException(`ไม่พบประวัติการเข้าของรถทะเบียน ${licensePlate}`);
     }
 
-    return entry;
+    return parkingRecord; // Return ParkingRecord instead of EntryRecord
   }
 
   async getEntryRecords(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     const currentTime = new Date();
-    const config = await this.getConfiguration(); // Get configuration
-    const rates = await this.getParkingRates(); // Fetch parking rates
+    const config = await this.getConfiguration();
+    const rates = await this.getParkingRates();
   
-    const [records, total] = await this.entryRecordRepository.findAndCount({
+    const [records, total] = await this.parkingRecordRepository.findAndCount({ // Use parkingRecordRepository
+      where: { exit_time: IsNull() }, // Filter for active records
       relations: {
         car: true,
         payments: true,
@@ -204,6 +192,9 @@ export class ParkingService {
       skip,
       take: limit,
     });
+  
+    //... (rest of the code remains the same)
+  
   
     const processedRecords = records.map(record => {
       const parkedTimeMs = currentTime.getTime() - record.entry_time.getTime();
@@ -240,11 +231,11 @@ export class ParkingService {
   async getEntryExitRecords(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     const currentTime = new Date();
-    const hourlyRate = 20; // บาทต่อชั่วโมง
-    const config = await this.getConfiguration(); // Get configuration
-  const rates = await this.getParkingRates(); //
+    const config = await this.getConfiguration();
+    const rates = await this.getParkingRates();
   
-    const [records, total] = await this.entryExitRecordRepository.findAndCount({
+    const [records, total] = await this.parkingRecordRepository.findAndCount({ // Use parkingRecordRepository
+      where: { exit_time: Not(IsNull()) }, // Filter for completed records
       relations: {
         car: true,
         payments: true
@@ -301,8 +292,8 @@ export class ParkingService {
     const currentTime = new Date();
   
     // Fetch active entries (entry records)
-    const [activeEntries, activeTotal] = await this.entryRecordRepository.findAndCount({
-      relations: { car: true, payments: true },
+    const [activeEntries, activeTotal] = await this.parkingRecordRepository.findAndCount({
+      where: { exit_time: IsNull() },
       order: {
         entry_time: sortOrder === 'DESC'? 'DESC': 'ASC',
       },
@@ -311,8 +302,8 @@ export class ParkingService {
     });
   
     // Fetch completed entries (entry-exit records)
-    const [completedEntries, completedTotal] = await this.entryExitRecordRepository.findAndCount({
-      relations: { car: true, payments: true },
+    const [completedEntries, completedTotal] = await this.parkingRecordRepository.findAndCount({
+      where: { exit_time: Not(IsNull()) },
       order: {
         exit_time: sortOrder === 'DESC'? 'DESC': 'ASC',
       },
@@ -327,7 +318,7 @@ export class ParkingService {
       const parkingFee = this.calculateParkingFee(parkedHours, rates, config.overflowHourRate); // Use calculateParkingFee
   
       return {
-        entry_records_id: entry.entry_records_id,
+        entry_records_id: entry.parking_record_id,
         car_id: entry.car_id,
         type: 'active',
         entry_time: entry.entry_time,
@@ -358,7 +349,7 @@ export class ParkingService {
       const parkingFee = this.calculateParkingFee(parkedHours, rates, config.overflowHourRate); // Use calculateParkingFee
   
       return {
-        entry_exit_records_id: entry.entry_exit_records_id,
+        entry_exit_records_id: entry.parking_record_id,
         car_id: entry.car_id,
         type: 'completed',
         entry_time: entry.entry_time,
@@ -425,12 +416,12 @@ export class ParkingService {
       throw new NotFoundException(`ไม่พบรถทะเบียน ${licensePlate}`);
     }
 
-    const latestEntry = await this.entryRecordRepository
-      .createQueryBuilder('entry')
-      .leftJoinAndSelect('entry.payments', 'payments')
-      .where('entry.car_id = :carId', { carId: car.car_id })
-      .orderBy('entry.entry_time', 'DESC')
-      .getOne();
+    const latestEntry = await this.parkingRecordRepository // Use parkingRecordRepository
+    .createQueryBuilder('parkingRecord')
+    .leftJoinAndSelect('parkingRecord.payments', 'payments')
+    .where('parkingRecord.car_id =:carId', { carId: car.car_id })
+    .orderBy('parkingRecord.entry_time', 'DESC')
+    .getOne();
 
     if (!latestEntry) {
       throw new NotFoundException(`ไม่พบประวัติการเข้าของรถทะเบียน ${licensePlate}`);
@@ -450,7 +441,7 @@ export class ParkingService {
       // Find the unpaid payment with its discount
       const unpaidPayment = await this.paymentRepository.findOne({
         where: {
-          entry_record_id: latestEntry.entry_records_id,
+          parking_record_id: latestEntry.parking_record_id, // Use parking_record_id
           amount: 0,
           paid_at: IsNull(),
         },
@@ -465,7 +456,7 @@ export class ParkingService {
       // Find the latest paid payment to get continued hours
       const lastPaidPayment = await this.paymentRepository.findOne({
         where: {
-          entry_record_id: latestEntry.entry_records_id,
+          parking_record_id: latestEntry.parking_record_id, // Use parking_record_id
           paid_at: Not(IsNull()),
         },
         order: { paid_at: 'DESC' },
@@ -545,80 +536,59 @@ export class ParkingService {
     }
 }
 
-  async recordCarExit(licensePlate: string) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+async recordCarExit(licensePlate: string) {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
-    try {
-      // ดึงข้อมูลโดยใช้ relations
-      const { car, latestEntry } = await this.getLatestEntryAndCar(licensePlate);
+  try {
+    // ดึงข้อมูลโดยใช้ relations
+    const { car, latestEntry } = await this.getLatestEntryAndCar(licensePlate);
 
-      // Check if any payment is needed
-      const paymentStatus = await this.checkPaymentAmount(licensePlate);
-      if (paymentStatus.needNewPayment &&  paymentStatus.newPaymentDetails.amountAfterDiscount > 0) {
-        throw new BadRequestException('ไม่สามารถออกได้: ต้องชำระค่าจอดรถเพิ่ม');
-      }
-
-      // Check for unpaid payments
-      const hasUnpaidPayments = latestEntry.payments.some(p => p.paid_at === null);
-      if (hasUnpaidPayments) {
-        throw new BadRequestException('ไม่สามารถออกได้: มีรายการที่ยังไม่ได้ชำระ');
-      }
-
-      // Create entry-exit record
-      const entryExitRecord = this.entryExitRecordRepository.create({
-        car_id: car.car_id,
-        entry_time: latestEntry.entry_time,
-        exit_time: new Date(),
-        entry_car_image_path: latestEntry.entry_car_image_path
-      });
-
-      // Save entry-exit record first to get ID
-      await queryRunner.manager.save(entryExitRecord);
-
-      // Update all payments to link with entry-exit record
-      const payments = await this.paymentRepository.find({
-        where: { entry_record_id: latestEntry.entry_records_id }
-      });
-
-      for (const payment of payments) {
-        payment.entry_record_id = null;
-        payment.entry_exit_record_id = entryExitRecord.entry_exit_records_id;
-        await queryRunner.manager.save(payment);
-      }
-
-      // Now we can safely remove the entry record
-      await queryRunner.manager.remove(latestEntry);
-
-      await queryRunner.commitTransaction();
-
-      // Load payments for response
-      const savedEntryExit = await this.entryExitRecordRepository.findOne({
-        where: { entry_exit_records_id: entryExitRecord.entry_exit_records_id },
-        relations: ['payments']
-      });
-
-      return {
-        success: true,
-        licensePlate,
-        entryExitRecordId: entryExitRecord.entry_exit_records_id,
-        entryTime: savedEntryExit.entry_time,
-        exitTime: savedEntryExit.exit_time,
-        payments: savedEntryExit.payments.map(p => ({
-          paymentId: p.payment_id,
-          amount: p.amount,
-          paidAt: p.paid_at
-        }))
-      };
-
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
+    // Check if any payment is needed
+    const paymentStatus = await this.checkPaymentAmount(licensePlate);
+    if (paymentStatus.needNewPayment && paymentStatus.newPaymentDetails.amountAfterDiscount > 0) {
+      throw new BadRequestException('ไม่สามารถออกได้: ต้องชำระค่าจอดรถเพิ่ม');
     }
+
+    // Check for unpaid payments
+    const hasUnpaidPayments = latestEntry.payments.some(p => p.paid_at === null);
+    if (hasUnpaidPayments) {
+      throw new BadRequestException('ไม่สามารถออกได้: มีรายการที่ยังไม่ได้ชำระ');
+    }
+
+    // **อัพเดต exit_time ใน ParkingRecord**
+    latestEntry.exit_time = new Date(); 
+    await queryRunner.manager.save(latestEntry); 
+
+    await queryRunner.commitTransaction();
+
+    // Load payments for response
+    const savedEntryExit = await this.parkingRecordRepository.findOne({
+      where: { parking_record_id: latestEntry.parking_record_id },
+      relations: ['payments']
+    });
+
+    return {
+      success: true,
+      licensePlate,
+      parkingRecordId: savedEntryExit.parking_record_id, // แก้ไขเป็น parkingRecordId
+      entryTime: savedEntryExit.entry_time,
+      exitTime: savedEntryExit.exit_time,
+      payments: savedEntryExit.payments.map(p => ({
+        paymentId: p.payment_id,
+        amount: p.amount,
+        paidAt: p.paid_at
+      }))
+    };
+
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
   }
+}
 
   async getPaymentHistory(licensePlate: string) {
     // ค้นหารถ
@@ -631,15 +601,21 @@ export class ParkingService {
     }
 
     // ดึงข้อมูลการเข้าจอดที่ยังไม่ได้ออก พร้อม payments
-    const activeEntries = await this.entryRecordRepository.find({
-      where: { car_id: car.car_id },
+    const activeEntries = await this.parkingRecordRepository.find({
+      where: { 
+        car_id: car.car_id,
+        exit_time: IsNull()  // เพิ่มเงื่อนไขนี้เพื่อดึงเฉพาะ active entries
+      },
       relations: ['payments'],
       order: { entry_time: 'DESC' }
     });
 
     // ดึงข้อมูลการเข้า-ออกที่สมบูรณ์แล้ว พร้อม payments
-    const completedEntries = await this.entryExitRecordRepository.find({
-      where: { car_id: car.car_id },
+    const completedEntries = await this.parkingRecordRepository.find({
+      where: { 
+        car_id: car.car_id,
+        exit_time: Not(IsNull())  // เพิ่มเงื่อนไขนี้เพื่อดึงเฉพาะ completed entries
+      },
       relations: ['payments'],
       order: { exit_time: 'DESC' }
     });
@@ -711,8 +687,8 @@ export class ParkingService {
 
         // Find the latest paid payment
         const lastPaidPayment = await this.paymentRepository.findOne({
-            where: {
-                entry_record_id: latestEntry.entry_records_id,
+          where: {
+            parking_record_id: latestEntry.parking_record_id, // Use parking_record_id
                 paid_at: Not(IsNull()),
             },
             order: { paid_at: 'DESC' },
@@ -720,8 +696,8 @@ export class ParkingService {
 
         // Find any unpaid payment record to get discount
         const unPaidPayment = await this.paymentRepository.findOne({
-            where: {
-                entry_record_id: latestEntry.entry_records_id,
+          where: {
+            parking_record_id: latestEntry.parking_record_id, // Use parking_record_id
                 paid_at: IsNull(),
             },
         });
@@ -774,9 +750,9 @@ export class ParkingService {
         }
 
         // Create a new initial payment record if needed
-        if (needNewPayment && !unPaidPayment) {
-            const newInitialPayment = this.paymentRepository.create({
-                entry_record_id: latestEntry.entry_records_id,
+        if (needNewPayment &&!unPaidPayment) {
+          const newInitialPayment = this.paymentRepository.create({
+            parking_record_id: latestEntry.parking_record_id, // Use parking_record_id
                 amount: 0,
                 discount: currentDiscount,
                 paid_at: null,

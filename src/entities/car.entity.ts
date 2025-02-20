@@ -1,8 +1,7 @@
 // src/entities/car.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Member } from './member.entity';
-import { EntryRecord } from './entry-record.entity';
-import { EntryExitRecord } from './entry-exit-record.entity';
+import { ParkingRecord } from './parking-record.entity';
 
 @Entity('Cars')
 export class Car {
@@ -21,9 +20,7 @@ export class Car {
   @ManyToOne(() => Member, member => member.cars)
   member: Member;
 
-  @OneToMany(() => EntryRecord, entryRecord => entryRecord.car)
-  entryRecords: EntryRecord[];
 
-  @OneToMany(() => EntryExitRecord, entryExitRecord => entryExitRecord.car)
-  entryExitRecords: EntryExitRecord[];
+  @OneToMany(() => ParkingRecord, parkingRecord => parkingRecord.car) // เปลี่ยน relation
+parkingRecords: ParkingRecord[]; // เปลี่ยนชื่อ property
 }

@@ -1,7 +1,6 @@
 // src/entities/payment.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { EntryRecord } from './entry-record.entity';
-import { EntryExitRecord } from './entry-exit-record.entity';
+import { ParkingRecord } from './parking-record.entity';
 
 @Entity('Payments')
 export class Payment {
@@ -23,11 +22,13 @@ export class Payment {
   @Column({ type: 'timestamp', nullable: true })
   paid_at: Date;
 
-  @ManyToOne(() => EntryRecord, entryRecord => entryRecord.payments)
-  @JoinColumn({ name: 'entry_record_id' })
-  entryRecord: EntryRecord;
 
-  @ManyToOne(() => EntryExitRecord, entryExitRecord => entryExitRecord.payments)
-  @JoinColumn({ name: 'entry_exit_record_id' })
-  entryExitRecord: EntryExitRecord;
+  @ManyToOne(() => ParkingRecord, parkingRecord => parkingRecord.payments) // เปลี่ยน relation
+@JoinColumn({ name: 'parking_record_id' }) // เปลี่ยนชื่อ JoinColumn
+parkingRecord: ParkingRecord; // เปลี่ยนชื่อ property
+
+
+
+@Column({ nullable: true }) //เปลี่ยนเป็น parking_record_id แทน
+parking_record_id: number;
 }

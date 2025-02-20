@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
+import { And, Between, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { Repository } from 'typeorm';
-import { EntryRecord } from '../entities/entry-record.entity';
-import { EntryExitRecord } from '../entities/entry-exit-record.entity';
+// import { EntryRecord } from '../entities/entry-record.entity';
+// import { EntryExitRecord } from '../entities/parking-record.entity';
+import { ParkingRecord } from '../entities/parking-record.entity'; // Import ParkingRecord
 import { Payment } from '../entities/payment.entity';
 import { DashboardDto } from './dto/dashboard.dto';
 
@@ -15,10 +16,13 @@ import { DashboardDto } from './dto/dashboard.dto';
 @Injectable()
 export class DashboardService {
   constructor(
-    @InjectRepository(EntryRecord)
-    private entryRecordRepository: Repository<EntryRecord>,
-    @InjectRepository(EntryExitRecord)
-    private entryExitRecordRepository: Repository<EntryExitRecord>,
+    // @InjectRepository(EntryRecord)
+    // private entryRecordRepository: Repository<EntryRecord>,
+    // @InjectRepository(EntryExitRecord)
+    // private entryExitRecordRepository: Repository<EntryExitRecord>,
+    @InjectRepository(ParkingRecord) // Inject ParkingRecord repository
+    private parkingRecordRepository: Repository<ParkingRecord>,
+
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>
   ) {}
@@ -143,14 +147,19 @@ console.log('endDate after initialization:', endDate);
   }
 
   private async countEntries(start: Date, end: Date): Promise<number> {
-    return this.entryRecordRepository.count({
-      where: { entry_time: Between(start, end) }
+    return this.parkingRecordRepository.count({ 
+      where: { 
+        entry_time: Between(start, end), 
+        exit_time: IsNull() // Add this condition
+      } 
     });
   }
 
   private async countExits(start: Date, end: Date): Promise<number> {
-    return this.entryExitRecordRepository.count({
-      where: { exit_time: Between(start, end) }
+    return this.parkingRecordRepository.count({ 
+      where: { 
+        exit_time: And(Between(start, end), Not(IsNull()))  // Use And operator
+      } 
     });
   }
 
@@ -254,7 +263,7 @@ private async getRevenueByHour(start: Date, end: Date) {
   
   private async getEntriesByHour(start: Date, end: Date) {
     try {
-      const entries = await this.entryRecordRepository
+      const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
         .select('EXTRACT(HOUR FROM entry_time AT TIME ZONE \'UTC\')', 'hour')
         .addSelect('COUNT(*)', 'entries')
@@ -283,7 +292,7 @@ private async getRevenueByHour(start: Date, end: Date) {
   
   private async getExitsByHour(start: Date, end: Date) {
     try {
-      const exits = await this.entryExitRecordRepository
+      const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
         .select('EXTRACT(HOUR FROM exit_time AT TIME ZONE \'UTC\')', 'hour')
         .addSelect('COUNT(*)', 'exits')
@@ -351,7 +360,7 @@ console.log('end date in getRevenueByDay:', end);
     console.log('start date in getEntriesByDay:', start);
 console.log('end date in getEntriesByDay:', end);
     try {
-      const entries = await this.entryRecordRepository
+      const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
         .select('DATE(entry_time AT TIME ZONE \'UTC\')', 'day')
         .addSelect('COUNT(*)', 'entries')
@@ -385,7 +394,7 @@ console.log('end date in getEntriesByDay:', end);
     console.log('start date in getExitsByDay:', start);
 console.log('end date in getExitsByDay:', end);
     try {
-      const exits = await this.entryExitRecordRepository
+      const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
         .select('DATE(exit_time AT TIME ZONE \'UTC\')', 'day')
         .addSelect('COUNT(*)', 'exits')
@@ -472,7 +481,7 @@ console.log('end date in getExitsByDay:', end);
   
   private async getEntriesByMonth(start: Date, end: Date) {
     try {
-      const entries = await this.entryRecordRepository
+      const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
         .select('to_char(entry_time AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
         .addSelect('COUNT(*)', 'entries')
@@ -505,7 +514,7 @@ console.log('end date in getExitsByDay:', end);
   
   private async getExitsByMonth(start: Date, end: Date) {
     try {
-      const exits = await this.entryExitRecordRepository
+      const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
         .select('to_char(exit_time AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
         .addSelect('COUNT(*)', 'exits')
@@ -577,7 +586,7 @@ console.log('end date in getExitsByDay:', end);
   }
   
   private async getEntriesByYear(start: Date, end: Date) {
-    const entries = await this.entryRecordRepository
+    const entries = await this.parkingRecordRepository 
       .createQueryBuilder('entry')
       .select('EXTRACT(YEAR FROM entry_time)', 'year')
       .addSelect('COUNT(*)', 'entries')
@@ -593,7 +602,7 @@ console.log('end date in getExitsByDay:', end);
   }
   
   private async getExitsByYear(start: Date, end: Date) {
-    const exits = await this.entryExitRecordRepository
+    const exits = await this.parkingRecordRepository 
       .createQueryBuilder('exit')
       .select('EXTRACT(YEAR FROM exit_time)', 'year')
       .addSelect('COUNT(*)', 'exits')

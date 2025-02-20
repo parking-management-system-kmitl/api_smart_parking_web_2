@@ -1,7 +1,7 @@
 // parking-rates-configuration/entities/parking-rates-configuration.entity.ts
 import { Entity, Column, PrimaryColumn } from 'typeorm';
 
-@Entity('parking_rates_configuration')
+@Entity('Parking_rates_configuration')
 export class ParkingRatesConfigurationEntity {
  @PrimaryColumn()
  hours: number;

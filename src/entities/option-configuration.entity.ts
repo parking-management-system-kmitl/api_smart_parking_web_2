@@ -2,7 +2,7 @@ import { IsInt, Min, Max } from "class-validator";
 import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
 // option-configuration.entity.ts
-@Entity('option_configuration')
+@Entity('Option_configuration')
 export class OptionConfigurationEntity {
   @PrimaryGeneratedColumn()
   parking_option_id: number;

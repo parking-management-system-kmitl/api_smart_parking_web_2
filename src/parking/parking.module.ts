@@ -4,8 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ParkingController } from './parking.controller';
 import { ParkingService } from './parking.service';
 import { Car } from '../entities/car.entity';
-import { EntryRecord } from '../entities/entry-record.entity';
-import { EntryExitRecord } from '../entities/entry-exit-record.entity';
+import { ParkingRecord } from '../entities/parking-record.entity';
+
 import { Payment } from '../entities/payment.entity';
 import { OptionConfigurationEntity } from 'src/entities/option-configuration.entity';
 import { ParkingRatesConfigurationEntity } from 'src/entities/parking-rates-configuration.entity';
@@ -14,8 +14,7 @@ import { ParkingRatesConfigurationEntity } from 'src/entities/parking-rates-conf
   imports: [
     TypeOrmModule.forFeature([
       Car, 
-      EntryRecord, 
-      EntryExitRecord,
+      ParkingRecord,
       Payment,
       OptionConfigurationEntity // Add this line
 ,ParkingRatesConfigurationEntity

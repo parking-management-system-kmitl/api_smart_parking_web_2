@@ -9,7 +9,7 @@ export enum CustomerType {
   }
   
   // discounts-configuration/entities/discount-configuration.entity.ts
-@Entity('discounts_configuration')
+@Entity('Discounts_configuration')
 export class DiscountConfigurationEntity {
   @PrimaryGeneratedColumn()
   discount_id: number;

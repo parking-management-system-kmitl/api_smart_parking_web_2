@@ -1,11 +1,11 @@
-import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
+import { Injectable, HttpException, HttpStatus, OnApplicationBootstrap } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { OptionConfigurationEntity } from "src/entities/option-configuration.entity";
 import { Repository } from "typeorm";
 import { UpdateOptionConfigDto } from "./dto/option-configuration.dto";
 
 @Injectable()
-export class OptionConfigurationService {
+export class OptionConfigurationService implements OnApplicationBootstrap {
   private readonly DEFAULT_ID = 1;
   private readonly DEFAULT_OPTION = {
     parking_option_id: 1,
@@ -19,6 +19,17 @@ export class OptionConfigurationService {
     @InjectRepository(OptionConfigurationEntity)
     private optionRepo: Repository<OptionConfigurationEntity>,
   ) {}
+
+  async onApplicationBootstrap() {
+    let option = await this.optionRepo.findOne({ 
+      where: { parking_option_id: this.DEFAULT_ID } 
+    });
+
+    if (!option) {
+      // ถ้ายังไม่มีข้อมูล ให้สร้าง default
+      option = await this.optionRepo.save(this.DEFAULT_OPTION);
+    }
+  }
 
   async getOption() {
     let option = await this.optionRepo.findOne({ 
