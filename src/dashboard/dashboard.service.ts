@@ -126,13 +126,13 @@ console.log('endDate after initialization:', endDate);
     const [activeEntryPayments, completedEntryPayments] = await Promise.all([
       this.paymentRepository.find({
         where: {
-          entry_record_id: Not(IsNull()),
+          parking_record_id: Not(IsNull()),
           paid_at: Between(start, end)
         }
       }),
       this.paymentRepository.find({
         where: {
-          entry_exit_record_id: Not(IsNull()),
+          parking_record_id: Not(IsNull()),
           paid_at: Between(start, end)
         }
       })

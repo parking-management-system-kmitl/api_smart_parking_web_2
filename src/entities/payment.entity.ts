@@ -7,11 +7,11 @@ export class Payment {
   @PrimaryGeneratedColumn()
   payment_id: number;
 
-  @Column({ nullable: true })
-  entry_record_id: number;
+  // @Column({ nullable: true })
+  // entry_record_id: number;
 
-  @Column({ nullable: true })
-  entry_exit_record_id: number;
+  // @Column({ nullable: true })
+  // entry_exit_record_id: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   amount: number;
@@ -32,3 +32,4 @@ parkingRecord: ParkingRecord; // เปลี่ยนชื่อ property
 @Column({ nullable: true }) //เปลี่ยนเป็น parking_record_id แทน
 parking_record_id: number;
 }
+

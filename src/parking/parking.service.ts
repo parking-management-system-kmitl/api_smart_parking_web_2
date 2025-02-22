@@ -334,7 +334,7 @@ export class ParkingService {
         parking_fee: parkingFee,
         payments: entry.payments.map(payment => ({
           payment_id: payment.payment_id,
-          entry_record_id: payment.entry_record_id,
+          entry_record_id: payment.parking_record_id,
           amount: payment.amount,
           discount: payment.discount,
           paid_at: payment.paid_at,
@@ -365,7 +365,7 @@ export class ParkingService {
         parking_fee: parkingFee,
         payments: entry.payments.map(payment => ({
           payment_id: payment.payment_id,
-          entry_exit_record_id: payment.entry_exit_record_id,
+          entry_exit_record_id: payment.parking_record_id,
           amount: payment.amount,
           discount: payment.discount,
           paid_at: payment.paid_at,
