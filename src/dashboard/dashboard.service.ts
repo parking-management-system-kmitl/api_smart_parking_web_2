@@ -28,53 +28,27 @@ export class DashboardService {
   ) {}
 
   async getDashboardData(dto: DashboardDto) {
-    // Normalize dates in UTC
+    // Normalize dates in Thailand time
     const startDate = dto.startDate
-    ? new Date(Date.UTC(
-          dto.startDate.getFullYear(),
-          dto.startDate.getMonth(),
-          dto.startDate.getDate(),
-          0, 0, 0, 0
-      ))
-    : new Date(Date.UTC(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          new Date().getDate(),
-          0, 0, 0, 0
-      ));
+        ? new Date(dto.startDate.getFullYear(), dto.startDate.getMonth(), dto.startDate.getDate(), 0, 0, 0, 0)
+        : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 0, 0, 0, 0);
 
     const endDate = dto.endDate
-    ? new Date(Date.UTC(
-          dto.endDate.getFullYear(),
-          dto.endDate.getMonth(),
-          dto.endDate.getDate(),
-          dto.endDate.getHours(),
-          dto.endDate.getMinutes(),
-          dto.endDate.getSeconds(),
-          dto.endDate.getMilliseconds()
-      ))
-    : new Date(Date.UTC(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          new Date().getDate(),
-          23, 59, 59, 999
-      ));
+        ? new Date(dto.endDate.getFullYear(), dto.endDate.getMonth(), dto.endDate.getDate(), 23, 59, 59, 999)
+        : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 23, 59, 59, 999);
+    
 
     // Calculate previous period
     const periodDuration = endDate.getTime() - startDate.getTime();
     const prevPeriodStart = new Date(startDate.getTime() - periodDuration);
 
     // Calculate the end of the day before startDate
-    const prevPeriodEnd = new Date(Date.UTC(
-      startDate.getUTCFullYear(),
-      startDate.getUTCMonth(),
-      startDate.getUTCDate() - 1,
-      23, 59, 59, 999
-    ));
-
-
-       // In getDashboardData
-console.log('endDate after initialization:', endDate); 
+    const prevPeriodEnd = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate() - 1,
+      30, 59, 59, 999
+    );
 
     // Fetch data
     const [
@@ -95,8 +69,6 @@ console.log('endDate after initialization:', endDate);
       this.prepareGraphData(startDate, endDate)
     ]);
 
-    
-
     return {
       revenue: {
         current: currentRevenue,
@@ -115,34 +87,24 @@ console.log('endDate after initialization:', endDate);
       },
       graphData,
       dateRange: {
-        start: startDate,
-        end: endDate
+        start: this.formatDateForResponse(startDate),
+        end: this.formatDateForResponse(endDate)
       }
     };
   }
 
   private async calculateTotalRevenue(start: Date, end: Date): Promise<number> {
-    // Sum payments from both active entries and completed entries
-    const [activeEntryPayments, completedEntryPayments] = await Promise.all([
-      this.paymentRepository.find({
-        where: {
-          entry_record_id: Not(IsNull()),
-          paid_at: Between(start, end)
-        }
-      }),
-      this.paymentRepository.find({
-        where: {
-          entry_exit_record_id: Not(IsNull()),
-          paid_at: Between(start, end)
-        }
-      })
-    ]);
-
-    const totalRevenue = [
-      ...activeEntryPayments, 
-      ...completedEntryPayments
-    ].reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-
+    // รวมการค้นหาเป็นครั้งเดียว แทนที่จะแยกเป็นสองครั้ง
+    const payments = await this.paymentRepository.find({
+      where: {
+        parking_record_id: Not(IsNull()),
+        paid_at: Between(start, end)
+      }
+    });
+  
+    // คำนวณผลรวมจากรายการที่ได้
+    const totalRevenue = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  
     return Number(totalRevenue.toFixed(2));
   }
 
@@ -209,27 +171,27 @@ console.log('endDate after initialization:', endDate);
 
   // Hourly methods
   // Modify the hourly methods to be specific to a single day
-private async getRevenueByHour(start: Date, end: Date) {
+  private async getRevenueByHour(start: Date, end: Date) {
     try {
       const activeEntryPayments = await this.paymentRepository
         .createQueryBuilder('payment')
-        .select('EXTRACT(HOUR FROM payment.paid_at AT TIME ZONE \'UTC\')', 'hour')
+        .select('EXTRACT(HOUR FROM (payment.paid_at AT TIME ZONE \'UTC+7\'))', 'hour')
         .addSelect('SUM(payment.amount)', 'revenue')
-        .where('payment.entry_record_id IS NOT NULL')
-        .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-        .groupBy('hour')
-        .orderBy('hour')
-        .getRawMany();
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยนจาก entry_record_id
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('hour')
+  .orderBy('hour')
+  .getRawMany();
   
-      const completedEntryPayments = await this.paymentRepository
-        .createQueryBuilder('payment')
-        .select('EXTRACT(HOUR FROM payment.paid_at AT TIME ZONE \'UTC\')', 'hour')
-        .addSelect('SUM(payment.amount)', 'revenue')
-        .where('payment.entry_exit_record_id IS NOT NULL')
-        .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-        .groupBy('hour')
-        .orderBy('hour')
-        .getRawMany();
+  const completedEntryPayments = await this.paymentRepository
+  .createQueryBuilder('payment')
+  .select('EXTRACT(HOUR FROM payment.paid_at)', 'hour')
+  .addSelect('SUM(payment.amount)', 'revenue')
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยนให้เหมือนกับ activeEntryPayments
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('hour')
+  .orderBy('hour')
+  .getRawMany();
   
       // Combine and aggregate payments
       const hourlyRevenueMap = new Map<number, number>();
@@ -265,14 +227,14 @@ private async getRevenueByHour(start: Date, end: Date) {
     try {
       const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
-        .select('EXTRACT(HOUR FROM entry_time AT TIME ZONE \'UTC\')', 'hour')
+        .select('EXTRACT(HOUR FROM (entry_time AT TIME ZONE \'UTC+7\'))', 'hour')
         .addSelect('COUNT(*)', 'entries')
         .where('entry_time BETWEEN :start AND :end', { start, end })
         .groupBy('hour')
         .orderBy('hour')
         .getRawMany();
   
-      // Create full 24-hour array
+      // Create full 24-hour array with Thailand time hours
       const hourlyEntriesMap = new Map(
         entries.map(item => [parseInt(item.hour), parseInt(item.entries)])
       );
@@ -294,7 +256,8 @@ private async getRevenueByHour(start: Date, end: Date) {
     try {
       const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
-        .select('EXTRACT(HOUR FROM exit_time AT TIME ZONE \'UTC\')', 'hour')
+        .select('EXTRACT(HOUR FROM exit_time)', 'hour')
+
         .addSelect('COUNT(*)', 'exits')
         .where('exit_time BETWEEN :start AND :end', { start, end })
         .groupBy('hour')
@@ -327,7 +290,8 @@ console.log('end date in getRevenueByDay:', end);
     try {
       const payments = await this.paymentRepository
         .createQueryBuilder('payment')
-        .select('DATE(payment.paid_at AT TIME ZONE \'UTC\')', 'day')
+        .select('DATE(payment.paid_at)', 'day')
+
         .addSelect('SUM(payment.amount)', 'revenue')
         .where('payment.paid_at BETWEEN :start AND :end', { 
           start, 
@@ -362,7 +326,8 @@ console.log('end date in getEntriesByDay:', end);
     try {
       const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
-        .select('DATE(entry_time AT TIME ZONE \'UTC\')', 'day')
+        .select('DATE(entry_time)', 'day')
+
         .addSelect('COUNT(*)', 'entries')
         .where('entry_time BETWEEN :start AND :end', { 
           start, 
@@ -377,7 +342,9 @@ console.log('end date in getEntriesByDay:', end);
         day: date.toISOString().split('T')[0],
         entries: entries.find(e => 
           new Date(e.day).toISOString().split('T')[0] === date.toISOString().split('T')[0]
-        )?.entries || 0
+        )?.entries ? parseInt(entries.find(e => 
+          new Date(e.day).toISOString().split('T')[0] === date.toISOString().split('T')[0]
+        )?.entries) : 0
       }));
   
       return dailyEntries;
@@ -396,7 +363,8 @@ console.log('end date in getExitsByDay:', end);
     try {
       const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
-        .select('DATE(exit_time AT TIME ZONE \'UTC\')', 'day')
+        .select('DATE(exit_time)', 'day')
+
         .addSelect('COUNT(*)', 'exits')
         .where('exit_time BETWEEN :start AND :end', { 
           start, 
@@ -428,24 +396,24 @@ console.log('end date in getExitsByDay:', end);
   private async getRevenueByMonth(start: Date, end: Date) {
     try {
       const activeEntryPayments = await this.paymentRepository
-        .createQueryBuilder('payment')
-        .select('to_char(payment.paid_at AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
-        .addSelect('SUM(payment.amount)', 'revenue')
-        .where('payment.entry_record_id IS NOT NULL')
-        .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-        .groupBy('month')
-        .orderBy('month')
-        .getRawMany();
+  .createQueryBuilder('payment')
+  .select('to_char(payment.paid_at, \'YYYY-MM\')', 'month')
+  .addSelect('SUM(payment.amount)', 'revenue')
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยน
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('month')
+  .orderBy('month')
+  .getRawMany();
   
-      const completedEntryPayments = await this.paymentRepository
-        .createQueryBuilder('payment')
-        .select('to_char(payment.paid_at AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
-        .addSelect('SUM(payment.amount)', 'revenue')
-        .where('payment.entry_exit_record_id IS NOT NULL')
-        .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-        .groupBy('month')
-        .orderBy('month')
-        .getRawMany();
+  const completedEntryPayments = await this.paymentRepository
+  .createQueryBuilder('payment')
+  .select('to_char(payment.paid_at, \'YYYY-MM\')', 'month')
+  .addSelect('SUM(payment.amount)', 'revenue')
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยน
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('month')
+  .orderBy('month')
+  .getRawMany();
   
       // Combine and aggregate payments
       const monthlyRevenueMap = new Map<string, number>();
@@ -483,8 +451,7 @@ console.log('end date in getExitsByDay:', end);
     try {
       const entries = await this.parkingRecordRepository 
         .createQueryBuilder('entry')
-        .select('to_char(entry_time AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
-        .addSelect('COUNT(*)', 'entries')
+        .select('to_char(entry_time, \'YYYY-MM\')', 'month')        .addSelect('COUNT(*)', 'entries')
         .where('entry_time BETWEEN :start AND :end', { start, end })
         .groupBy('month')
         .orderBy('month')
@@ -516,8 +483,7 @@ console.log('end date in getExitsByDay:', end);
     try {
       const exits = await this.parkingRecordRepository 
         .createQueryBuilder('exit')
-        .select('to_char(exit_time AT TIME ZONE \'UTC\', \'YYYY-MM\')', 'month')
-        .addSelect('COUNT(*)', 'exits')
+        .select('to_char(exit_time, \'YYYY-MM\')', 'month')        .addSelect('COUNT(*)', 'exits')
         .where('exit_time BETWEEN :start AND :end', { start, end })
         .groupBy('month')
         .orderBy('month')
@@ -548,24 +514,24 @@ console.log('end date in getExitsByDay:', end);
   // Year-level aggregations
   private async getRevenueByYear(start: Date, end: Date) {
     const activeEntryPayments = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .select('EXTRACT(YEAR FROM payment.paid_at)', 'year')
-      .addSelect('SUM(payment.amount)', 'revenue')
-      .where('payment.entry_record_id IS NOT NULL')
-      .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-      .groupBy('year')
-      .orderBy('year')
-      .getRawMany();
+  .createQueryBuilder('payment')
+  .select('EXTRACT(YEAR FROM payment.paid_at)', 'year')
+  .addSelect('SUM(payment.amount)', 'revenue')
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยน
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('year')
+  .orderBy('year')
+  .getRawMany();
   
-    const completedEntryPayments = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .select('EXTRACT(YEAR FROM payment.paid_at)', 'year')
-      .addSelect('SUM(payment.amount)', 'revenue')
-      .where('payment.entry_exit_record_id IS NOT NULL')
-      .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
-      .groupBy('year')
-      .orderBy('year')
-      .getRawMany();
+  const completedEntryPayments = await this.paymentRepository
+  .createQueryBuilder('payment')
+  .select('EXTRACT(YEAR FROM payment.paid_at)', 'year')
+  .addSelect('SUM(payment.amount)', 'revenue')
+  .where('payment.parking_record_id IS NOT NULL') // เปลี่ยน
+  .andWhere('payment.paid_at BETWEEN :start AND :end', { start, end })
+  .groupBy('year')
+  .orderBy('year')
+  .getRawMany();
   
     // Combine payments
     const yearlyRevenueMap = new Map<number, number>();
@@ -620,36 +586,34 @@ console.log('end date in getExitsByDay:', end);
   // Helper method to generate date range
   private generateDateRange(start: Date, end: Date): Date[] {
     const dates: Date[] = [];
-    let currentDate = new Date(Date.UTC(
-        start.getUTCFullYear(),
-        start.getUTCMonth(),
-        start.getUTCDate()
-    ));
-    const endDate = new Date(Date.UTC(
-        end.getUTCFullYear(),
-        end.getUTCMonth(),
-        end.getUTCDate()
-    ));
+    let currentDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
-    while (currentDate <= endDate) {
-        dates.push(new Date(currentDate)); // Important: Create a new Date object!
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+    while (currentDate <= adjustedEnd) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
     }
-
     return dates;
 }
 
   // Modify generateMonthRange to handle date range more precisely
-private generateMonthRange(start: Date, end: Date): Date[] {
+  private generateMonthRange(start: Date, end: Date): Date[] {
     const months: Date[] = [];
-    const currentMonth = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
-    const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+    const currentMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
     
     while (currentMonth <= endMonth) {
       months.push(new Date(currentMonth));
-      currentMonth.setUTCMonth(currentMonth.getUTCMonth() + 1);
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
     
     return months;
   }
+
+  // เพิ่มฟังก์ชันนี้
+  private formatDateForResponse(date: Date): string {
+    // Adjust to Thailand time (+7 hours)
+    return new Date(date.getTime() - 7 * 60 * 60 * 1000).toISOString();
+  }
+
 }

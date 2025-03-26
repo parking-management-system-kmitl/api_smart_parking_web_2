@@ -1,11 +1,12 @@
 // configuration.controller.ts
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { DiscountsConfigurationService } from './discounts-configuration/discounts-configuration.service';
 import { OptionConfigurationService } from './option-configuration/option-configuration.service';
 import { ParkingRatesConfigurationService } from './parking-rates-configuration/parking-rates-configuration.service';
 import { CreateDiscountConfigDto, UpdateDiscountConfigDto } from './discounts-configuration/dto/discounts-configuration.dto';
 import { CreateOptionConfigDto, UpdateOptionConfigDto } from './option-configuration/dto/option-configuration.dto';
 import { CreateParkingRateDto, UpdateParkingRateDto } from './parking-rates-configuration/dto/parking-rates-configuration.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('configuration')
 export class ConfigurationController {
@@ -16,21 +17,25 @@ export class ConfigurationController {
   ) {}
 
   // Discounts Configuration
+  @UseGuards(JwtAuthGuard)
   @Get('discounts')
   getAllDiscounts() {
     return this.discountsService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('discounts/:id')
   getDiscount(@Param('id') id: number) {
     return this.discountsService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('discounts')
   createDiscount(@Body() createDiscountDto: CreateDiscountConfigDto) {
     return this.discountsService.create(createDiscountDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('discounts/:id')
   updateDiscount(
     @Param('id') id: number,
@@ -39,6 +44,7 @@ export class ConfigurationController {
     return this.discountsService.update(id, updateDiscountDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('discounts/:id')
   deleteDiscount(@Param('id') id: number) {
     return this.discountsService.delete(id);
@@ -46,12 +52,14 @@ export class ConfigurationController {
 
   // Option Configuration
 
+  @UseGuards(JwtAuthGuard)
   @Get('options')
   getAllOptions() {
     return this.optionService.getOption();
   }
 
 
+  @UseGuards(JwtAuthGuard)
   @Put('options/:id')
   async updateOption(
     @Param('id') id: number, 
@@ -90,21 +98,25 @@ export class ConfigurationController {
 //   }
 
   // Parking Rates Configuration
+  @UseGuards(JwtAuthGuard)
   @Get('rates')
   getAllRates() {
     return this.parkingRatesService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('rates/:hours')
   getRate(@Param('hours') hours: number) {
     return this.parkingRatesService.findOne(hours);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('rates')
   createRate(@Body() createRateDto: CreateParkingRateDto) {
     return this.parkingRatesService.create(createRateDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('rates/:hours')
   updateRate(
     @Param('hours') hours: number,
@@ -113,6 +125,7 @@ export class ConfigurationController {
     return this.parkingRatesService.update(hours, updateRateDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('rates/:hours')
   deleteRate(@Param('hours') hours: number) {
     return this.parkingRatesService.delete(hours);

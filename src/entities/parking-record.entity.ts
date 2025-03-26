@@ -19,8 +19,8 @@ export class ParkingRecord {
   @Column({ type: 'text', nullable: true })
   entry_car_image_path: string;
 
-  @Column({ type: 'text', nullable: true }) // เพิ่ม column สำหรับ exit image path
-  exit_car_image_path: string;
+  // @Column({ type: 'text', nullable: true }) // เพิ่ม column สำหรับ exit image path
+  // exit_car_image_path: string;
 
   @ManyToOne(() => Car, car => car.parkingRecords) // เปลี่ยน relation
   @JoinColumn({ name: 'car_id' })

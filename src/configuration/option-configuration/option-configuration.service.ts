@@ -12,7 +12,6 @@ export class OptionConfigurationService implements OnApplicationBootstrap {
     note_description: "Default parking options",
     minute_rounding_threshold: 0, 
     exit_buffer_time: 30,
-    overflow_hour_rate: 0
   };
 
   constructor(

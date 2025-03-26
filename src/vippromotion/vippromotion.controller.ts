@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
 import { VipPromotionService } from './vippromotion.service';
 import { VipPromotion } from '../entities/vip-promotions';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('vip-promotions')
 export class VipPromotionController {
@@ -25,6 +26,7 @@ export class VipPromotionController {
     }
 
     // API เพื่อเพิ่มโปรโมชั่นใหม่
+    @UseGuards(JwtAuthGuard)
     @Post()
     async createPromotion(
         @Body('days') days: number,
@@ -34,6 +36,7 @@ export class VipPromotionController {
     }
 
     // API เพื่ออัพเดทโปรโมชั่น
+    @UseGuards(JwtAuthGuard)
     @Put(':id')
     async updatePromotion(
         @Param('id') id: number,
@@ -44,12 +47,14 @@ export class VipPromotionController {
     }
 
     // API เพื่อลบโปรโมชั่น
+    @UseGuards(JwtAuthGuard)
     @Delete(':id')
     async deletePromotion(@Param('id') id: number): Promise<void> {
         return this.vipPromotionService.deletePromotion(id);
     }
 
     // API เพื่อเปิดสถานะโปรโมชั่นให้เป็น Active
+    @UseGuards(JwtAuthGuard)
     @Put('activate/:id')
     async activatePromotion(@Param('id') id: number): Promise<VipPromotion> {
         return this.vipPromotionService.activateSinglePromotion(id);

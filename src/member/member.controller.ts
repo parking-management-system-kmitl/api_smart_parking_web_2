@@ -4,12 +4,16 @@ import {
     Body,
     HttpCode, 
     HttpStatus, 
-    BadRequestException
+    BadRequestException,
+    UsePipes,
+    ValidationPipe,
+    UseGuards
    } from '@nestjs/common';
    import { MemberService } from './member.service';
    import { CreateMemberDto } from './dto/create-member.dto';
    import { LinkCarDto } from './dto/link-car.dto';
    import { CheckPhoneDto } from './dto/check-phone.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
    
    @Controller('member')
    export class MemberController {
@@ -19,6 +23,7 @@ import {
    
     @Post('register')
     @HttpCode(HttpStatus.CREATED)
+    @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) 
     async registerMember(@Body() memberData: CreateMemberDto) {
       return this.memberService.registerMember(memberData);
     }
@@ -29,6 +34,7 @@ import {
       return this.memberService.linkCarToMember(linkCarDto);
     }
 
+    @UseGuards(JwtAuthGuard)
     @Post('unlink-car')
   async unlinkCar(@Body() body: { car_id: number }) {
     return this.memberService.unlinkCar(body.car_id);

@@ -147,18 +147,19 @@ export class DiscountService {
       let remainingFreeHours = Math.min(freeHours, totalHours); // Limit free hours to actual hours parked
       
       // Apply tiered rates to calculate free hours value
-      for (const rate of parkingRates) {
-        if (remainingFreeHours <= 0) break;
-        
-        const hoursAtThisRate = Math.min(remainingFreeHours, rate.hours);
-        discountAmount += hoursAtThisRate * rate.rate_at_hour;
-        remainingFreeHours -= hoursAtThisRate;
-      }
-      
-      // If there are still remaining free hours, apply overflow rate
-      if (remainingFreeHours > 0) {
-        discountAmount += remainingFreeHours * options.overflow_hour_rate;
-      }
+for (const rate of parkingRates) {
+  if (remainingFreeHours <= 0) break;
+  
+  const hoursAtThisRate = Math.min(remainingFreeHours, rate.hours);
+  discountAmount += hoursAtThisRate * rate.rate_at_hour;
+  remainingFreeHours -= hoursAtThisRate;
+}
+
+// ส่วนนี้ต้องแก้ไข - ใช้อัตราสุดท้ายในขั้นบันไดแทน
+if (remainingFreeHours > 0 && parkingRates.length > 0) {
+  const lastRate = parkingRates[parkingRates.length - 1]; // เอาเรทสุดท้ายในขั้นบันได
+  discountAmount += remainingFreeHours * lastRate.rate_at_hour;
+}
     }
     
     // Update payment with discount (without changing amount)
@@ -186,7 +187,7 @@ export class DiscountService {
   ): number {
     let amount = 0;
     let remainingHours = totalHours;
-
+  
     // Apply tiered rates
     for (const rate of parkingRates) {
       if (remainingHours <= 0) break;
@@ -195,12 +196,13 @@ export class DiscountService {
       amount += hoursAtThisRate * rate.rate_at_hour;
       remainingHours -= hoursAtThisRate;
     }
-
-    // If there are still remaining hours, apply overflow rate
-    if (remainingHours > 0) {
-      amount += remainingHours * options.overflow_hour_rate;
+  
+    // ส่วนนี้ต้องแก้ไข - ใช้อัตราสุดท้ายในขั้นบันไดแทน
+    if (remainingHours > 0 && parkingRates.length > 0) {
+      const lastRate = parkingRates[parkingRates.length - 1]; // เอาเรทสุดท้ายในขั้นบันได
+      amount += remainingHours * lastRate.rate_at_hour;
     }
-
+  
     return amount;
   }
 }

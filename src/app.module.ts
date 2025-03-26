@@ -17,6 +17,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { VipModule } from './vip/vip.module';
 import { DiscountModule } from './discount/discount.module';
 import { VipPromotionModule } from './vippromotion/vippromotion.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -33,6 +34,9 @@ import { VipPromotionModule } from './vippromotion/vippromotion.module';
         entities: [__dirname + '/entities/*.entity{.ts,.js}'], // โหลดทุกไฟล์ที่ลงท้ายด้วย .entity.ts หรือ .entity.js
         autoLoadEntities: true,
         synchronize: true, // Set to true only in development
+        extra: {
+          timezone: 'Asia/Bangkok'
+        }
       }),
       inject: [ConfigService],
     }),
@@ -45,6 +49,7 @@ import { VipPromotionModule } from './vippromotion/vippromotion.module';
     VipModule,
     DiscountModule,
     VipPromotionModule,
+    PaymentModule,
 
   ],
 })

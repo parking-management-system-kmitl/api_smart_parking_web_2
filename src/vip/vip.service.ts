@@ -1,9 +1,10 @@
 import { BadRequestException, Body, Injectable, NotFoundException, Param, ParseIntPipe, Put } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, IsNull, Not } from 'typeorm';
+import { Repository, MoreThanOrEqual, IsNull, Not, ILike } from 'typeorm';
 import { Car } from '../entities/car.entity';
 import { Member } from 'src/entities/member.entity';
 import { UpdateCarDto } from './dto/update-car.dto';
+import { SearchVipByLicensePlateDto } from './dto/search-lp.dto';
 
 
 interface UpdateVipDto {
@@ -50,6 +51,58 @@ export class Vip {
 
     return { data, total };
   }
+
+  // เพิ่มเมธอดใหม่ใน class Vip
+async searchVipByLicensePlate(searchDto: SearchVipByLicensePlateDto): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+  const { licensePlate, page = 1, limit = 10 } = searchDto;
+  const skip = (page - 1) * limit;
+  const currentDate = new Date();
+
+  // ค้นหารถ VIP ที่มีป้ายทะเบียนคล้ายกับที่ระบุ และมี vip_expiry_date ที่ยังไม่หมดอายุ
+  const [cars, total] = await this.carRepository.findAndCount({
+    where: {
+      license_plate: ILike(`%${licensePlate}%`),
+      vip_expiry_date: Not(IsNull()), // เฉพาะรถที่เป็น VIP (มีวันหมดอายุ)
+    },
+    relations: ['member'],
+    order: {
+      vip_expiry_date: 'DESC', // เรียงตามวันหมดอายุล่าสุด
+    },
+    skip,
+    take: limit,
+  });
+
+  // แปลงข้อมูลให้อยู่ในรูปแบบที่ต้องการส่งกลับ
+  const data = cars.map((car) => {
+    // คำนวณวันที่เหลือก่อนหมดอายุ
+    const daysRemaining = car.vip_expiry_date ? 
+      Math.ceil((new Date(car.vip_expiry_date).getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)) : 
+      0;
+    
+    // ตรวจสอบว่า VIP ยังใช้งานได้หรือไม่
+    const isVipActive = car.vip_expiry_date && new Date(car.vip_expiry_date) > currentDate;
+
+    return {
+      ...car,
+      daysRemaining: daysRemaining > 0 ? daysRemaining : 0, // ถ้าเป็นลบให้แสดงเป็น 0
+      isVipActive,
+      member: car.member ? {
+        member_id: car.member.member_id,
+        f_name: car.member.f_name,
+        l_name: car.member.l_name,
+        phone: car.member.phone,
+      } : null,
+    };
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit)
+  };
+}
 
 
   async updateVip(carId: number, data: UpdateVipDto) {
@@ -101,28 +154,52 @@ export class Vip {
   }
 
   async updateLicensePlate(carId: number, newLicensePlate: string): Promise<Car> {
-    const car = await this.carRepository.findOne({ where: { car_id: carId } });
-
+    const car = await this.carRepository.findOne({ 
+      where: { car_id: carId },
+      relations: ['member'] // Load member relation 
+    });
+  
     if (!car) {
       throw new NotFoundException('Car not found');
     }
-
-    // Check if the new license plate is already in use by another car
-    const existingCar = await this.carRepository.findOne({
-      where: { license_plate: newLicensePlate },
+  
+    // Check if the new license plate is already in use by a car WITHOUT a member
+    const existingCarWithoutMember = await this.carRepository.findOne({
+      where: {
+        license_plate: newLicensePlate,
+        member: IsNull(), // Check for null member
+      },
     });
-
-    if (existingCar && existingCar.car_id !== carId) {
-      throw new BadRequestException('License plate is already in use');
+  
+    if (existingCarWithoutMember) {
+      // Transfer member and VIP status to the existing car
+      existingCarWithoutMember.member = car.member;
+      existingCarWithoutMember.vip_expiry_date = car.vip_expiry_date;
+      await this.carRepository.save(existingCarWithoutMember);
+  
+      // Clear member and VIP status from the original car
+      car.member = null;
+      car.vip_expiry_date = null;
+      await this.carRepository.save(car);
+  
+      return existingCarWithoutMember; // Return the updated existing car
+    } else {
+      // If the new license plate is not in use by a car without a member,
+      // proceed with the regular update (checking for duplicates with or without members)
+  
+      const existingCar = await this.carRepository.findOne({
+        where: { license_plate: newLicensePlate, car_id: Not(carId) } 
+      });
+  
+      if (existingCar) {
+        throw new BadRequestException('License plate is already in use');
+      }
+  
+      car.license_plate = newLicensePlate;
+      await this.carRepository.save(car);
+      return car;
     }
-
-    // Update the car's license plate
-    car.license_plate = newLicensePlate;
-    await this.carRepository.save(car);
-
-    return car;
   }
-
 
   async cancelVip(carId: number): Promise<Car> {
     const car = await this.carRepository.findOne({ where: { car_id: carId } });

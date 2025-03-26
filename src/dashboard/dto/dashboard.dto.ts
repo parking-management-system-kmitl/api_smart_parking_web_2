@@ -6,12 +6,13 @@ export class DashboardDto {
   @Transform(({ value }) => {
     if (value instanceof Date) return value;
     const date = new Date(value);
-    return new Date(Date.UTC(
+    // ใช้ constructor ปกติแทน Date.UTC เพื่อให้เป็นเวลาท้องถิ่น
+    return new Date(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
       0, 0, 0, 0
-    ));
+    );
   })
   startDate?: Date;
 
@@ -19,11 +20,13 @@ export class DashboardDto {
   @Transform(({ value }) => {
     if (value instanceof Date) return value;
     const date = new Date(value);
-    return new Date(Date.UTC(
+    // ใช้ constructor ปกติแทน Date.UTC
+    return new Date(
       date.getFullYear(),
       date.getMonth(),
-      date.getDate()
-    ));
+      date.getDate(),
+      23, 59, 59, 999 // เพิ่มเวลาเป็นสิ้นสุดวัน
+    );
   })
   endDate?: Date;
 }

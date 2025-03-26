@@ -1,7 +1,9 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { Vip } from './vip.service';
 import { Car } from '../entities/car.entity';
 import { UpdateCarDto } from './dto/update-car.dto';
+import { SearchVipByLicensePlateDto } from './dto/search-lp.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 interface UpdateVipDto {
     vip_days?: number;
@@ -14,6 +16,7 @@ interface UpdateVipDto {
 export class VipController {
   constructor(private readonly VipService: Vip) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get('getvip')
 async getActiveVipCars(
   @Query('page') page: number = 1,
@@ -22,6 +25,12 @@ async getActiveVipCars(
   return this.VipService.getActiveVipCars(page, limit);
 }
 
+@Post('search')
+async searchVipByLicensePlate(@Body() searchDto: SearchVipByLicensePlateDto) {
+  return this.VipService.searchVipByLicensePlate(searchDto);
+}
+
+@UseGuards(JwtAuthGuard)
 @Put(':carId') // Use PUT for updates, and include the carId as a parameter
   async updateVip(
     @Param('carId', ParseIntPipe) carId: number, // Validate carId is an integer
@@ -39,6 +48,7 @@ async getActiveVipCars(
     }
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('updatelp/:carId')
   async updateLicensePlate(
     @Param('carId', ParseIntPipe) carId: number,
@@ -56,6 +66,7 @@ async getActiveVipCars(
     }
   }
 
+  @UseGuards(JwtAuthGuard)
   @Put('cancelvip/:carId')
   async cancelVip(
     @Param('carId', ParseIntPipe) carId: number,

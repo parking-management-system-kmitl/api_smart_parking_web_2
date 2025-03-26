@@ -17,10 +17,10 @@ export class CreateOptionConfigDto {
   @Min(0)
   exit_buffer_time: number;
 
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  overflow_hour_rate: number;
+  // @IsNotEmpty()
+  // @IsNumber()
+  // @Min(0)
+  // overflow_hour_rate: number;
 }
 
 // option-configuration/dto/update-option.dto.ts
@@ -40,8 +40,8 @@ export class UpdateOptionConfigDto {
   @Min(0)
   exit_buffer_time?: number;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  overflow_hour_rate?: number;
+  // @IsOptional()
+  // @IsNumber()
+  // @Min(0)
+  // overflow_hour_rate?: number;
 }

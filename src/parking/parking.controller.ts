@@ -10,7 +10,8 @@ import {
     Query,
     HttpCode,
     UploadedFile,
-    UseInterceptors
+    UseInterceptors,
+    UseGuards
   } from '@nestjs/common';
   import { ParkingService } from './parking.service';
   import { CreateEntryDto } from './dto/create-entry.dto';
@@ -22,6 +23,8 @@ import { extname } from 'path';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as moment from 'moment';
+import { LicensePlateSearchDto } from './dto/license-plate-search.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
   
   @Controller('parking')
   export class ParkingController {
@@ -105,7 +108,7 @@ async createEntryRaspi(
   }
 }
 
-  
+@UseGuards(JwtAuthGuard)
   @Get('car/:licensePlate')
     async findCarByLicensePlate(@Param('licensePlate') licensePlate: string) {
       try {
@@ -122,7 +125,8 @@ async createEntryRaspi(
         }, HttpStatus.NOT_FOUND);
       }
     }
-  
+
+    @UseGuards(JwtAuthGuard)
     @Get('entry/latest/:licensePlate')
     async getLatestEntry(@Param('licensePlate') licensePlate: string) {
       try {
@@ -140,6 +144,7 @@ async createEntryRaspi(
       }
     }
 
+    @UseGuards(JwtAuthGuard)
     @Get('entry-records')
   async getEntryRecords(@Query() paginationDto: PaginationDto) {
     try {
@@ -160,6 +165,7 @@ async createEntryRaspi(
     }
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('entry-exit-records')
   async getEntryExitRecords(@Query() paginationDto: PaginationDto) {
     try {
@@ -180,7 +186,7 @@ async createEntryRaspi(
     }
   }
 
-
+  @UseGuards(JwtAuthGuard)
   @Get('records')
   async getAllParkingRecords(
    @Query('page') page?: number,
@@ -194,6 +200,26 @@ async createEntryRaspi(
      sortBy || 'entry_time', 
      sortOrder || 'DESC'
    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('entry-records/search')
+  async searchEntryRecords(@Body() searchDto: LicensePlateSearchDto) {
+    return this.parkingService.searchEntryRecordsByLicensePlate(searchDto);
+  }
+
+  // เพิ่ม API Endpoint สำหรับค้นหา Entry-Exit Records ด้วยป้ายทะเบียน
+  @UseGuards(JwtAuthGuard)
+  @Post('entry-exit-records/search')
+  async searchEntryExitRecords(@Body() searchDto: LicensePlateSearchDto) {
+    return this.parkingService.searchEntryExitRecordsByLicensePlate(searchDto);
+  }
+
+  // เพิ่ม API Endpoint สำหรับค้นหา All Parking Records ด้วยป้ายทะเบียน
+  @UseGuards(JwtAuthGuard)
+  @Post('all-records/search')
+  async searchAllParkingRecords(@Body() searchDto: LicensePlateSearchDto) {
+    return this.parkingService.searchAllParkingRecordsByLicensePlate(searchDto);
   }
 
 
@@ -261,6 +287,7 @@ async createEntryRaspi(
     }
   }
 
+  
   @Post('exit')
   @HttpCode(HttpStatus.OK)
   async recordCarExit(@Body() { licensePlate }: LicensePlateDto) {
@@ -289,6 +316,13 @@ async createEntryRaspi(
     @Param('licensePlate') licensePlate: string
   ) {
     return this.parkingService.getPaymentHistory(licensePlate);
+  }
+
+  @Get('lastestpaymenthistory/:licensePlate')
+  async getLastestPaymentHistory(
+    @Param('licensePlate') licensePlate: string
+  ) {
+    return this.parkingService.getLatestPaymentHistory(licensePlate);
   }
 
 

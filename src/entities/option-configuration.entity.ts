@@ -19,6 +19,6 @@ export class OptionConfigurationEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   exit_buffer_time: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  overflow_hour_rate: number;
+  // @Column({ type: 'decimal', precision: 10, scale: 2 , nullable: true })
+  // overflow_hour_rate: number;
 }
