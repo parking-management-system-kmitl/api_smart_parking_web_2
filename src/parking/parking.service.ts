@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { InjectRepository } from "@nestjs/typeorm";
 
@@ -227,6 +227,24 @@ export class ParkingService {
 
 
         try {
+
+            // 1. Check if there's an existing active parking record for this car
+        const existingActiveRecord = await queryRunner.manager.findOne(ParkingRecord, {
+            where: { 
+                car: { license_plate: createEntryDto.licensePlate },
+                exit_time: null 
+            },
+            relations: ['car']
+        });
+
+        // If an active parking record exists, throw a custom error
+        if (existingActiveRecord) {
+            throw new ConflictException({
+                message: 'Vehicle is already in the parking lot',
+                parkingRecordId: existingActiveRecord.parking_record_id,
+                licensePlate: existingActiveRecord.car.license_plate
+            });
+        }
 
             // 1. Find or create car
 
